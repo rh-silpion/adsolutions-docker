@@ -1,0 +1,37 @@
+#
+# --- OS ---
+#
+
+# Windows
+# -------
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN
+*.lnk
+
+# OS X
+# ----
+.DS_Store*
+Icon?
+._*
+
+# Linux
+# -----
+.directory
+*~
+
+
+
+#
+# --- IDE's ---
+#
+.idea/
+.vscode/
+
+
+
+#
+# --- Project ---
+#
+.env

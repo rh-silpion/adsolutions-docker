@@ -1,0 +1,120 @@
+version: "3.7"
+
+services:
+  keycloak:
+    image: $IMAGE_KEYCLOAK
+    container_name: keycloak
+    command: [
+      "-b", "0.0.0.0",
+      "-Dkeycloak.migration.action=import",
+      "-Dkeycloak.migration.provider=dir",
+      "-Dkeycloak.migration.dir=/opt/jboss/keycloak/realm-config",
+      "-Dkeycloak.migration.strategy=OVERWRITE_EXISTING",
+      "-Djboss.socket.binding.port-offset=1000"
+    ]
+    environment:
+      - KEYCLOAK_USER=admin
+      - KEYCLOAK_PASSWORD=admin
+    ports:
+      # Keycloak Ports
+      - "9080:9080"
+      - "9443:9443"
+      - "10990:10990"
+
+      # Backend Ports
+      - "8081:8081"
+
+      # Gateway Ports
+      - "9001:9001"
+      - "8080:8080"
+
+      # Node Ports
+      - "9000:9000"
+      - "9060:9060"
+    volumes:
+      - ${PATH_KEYCLOAK}:/opt/jboss/keycloak/realm-config
+
+  backend:
+    build:
+      context: ./
+      dockerfile: Java.Dockerfile
+      target: base
+      args: # The args part here is needed, to get pass the env variable from .env to the Dockerfile.
+            # From docs.docker.com: Note: If your service specifies a build option, variables defined in environment are not automatically visible during the build. Use the args sub-option of build to define build-time environment variables.
+        - IMAGE_VERSION=${IMAGE_BACKEND:-openjdk:8-jdk}
+      cache_from:
+        - backend_image:latest
+    image: backend_image:latest
+    container_name: backend
+    depends_on:
+      - keycloak
+    env_file:
+      - .env
+    network_mode: service:keycloak
+    volumes:
+      - ${PATH_BACKEND}:/app
+      - /app/target
+      - /app/node
+      - mvn_m2:/root/.m2
+
+  gateway:
+    build:
+      context: ./
+      dockerfile: Java.Dockerfile
+      target: gateway
+      args: # The args part here is needed, to get pass the env variable from .env to the Dockerfile.
+            # From docs.docker.com: Note: If your service specifies a build option, variables defined in environment are not automatically visible during the build. Use the args sub-option of build to define build-time environment variables.
+        - IMAGE_VERSION=${IMAGE_GATEWAY:-openjdk:8-jdk}
+        - NODE_VERSION=${GATEWAY_NODE_VERSION:-13.0.1}
+        - YARN_VERSION=${GATEWAY_YARN_VERSION:-1.19.1}
+      cache_from:
+        - gateway_image:latest
+    image: gateway_image:latest
+    container_name: gateway
+#    command: ["sh", "-c", "yarn install && ./mvnw -P-webpack & yarn start"]
+    depends_on:
+      - keycloak
+    env_file:
+      - .env
+    network_mode: service:keycloak
+    volumes:
+      - ${PATH_GATEWAY}:/app
+      - /app/node
+      - mvn_m2:/root/.m2
+      - target:/app/target
+      - ${PATH_GATEWAY}/target:/tmp/target
+      - node_modules:/app/node_modules
+      - ${PATH_GATEWAY}/node_modules:/tmp/node_modules
+
+  node:
+    build:
+      context: ./
+      dockerfile: Node.Dockerfile
+      target: stage-local-development
+      args: # The args part here is needed, to get pass the env variable from .env to the Dockerfile.
+            # From docs.docker.com: Note: If your service specifies a build option, variables defined in environment are not automatically visible during the build. Use the args sub-option of build to define build-time environment variables.
+        - IMAGE_VERSION=${IMAGE_NODE:-node:13.0.1-alpine}
+      cache_from:
+        - node_image:latest
+    image: node_image:latest
+    container_name: node
+    # "tty" and/or "stdin:open" are only needed to not close the container after all npm processes are done
+    #  For this we need also a special command like ["sh", "-c", "yarn start & sh"]
+    tty: true
+    stdin_open: true
+    depends_on:
+      - keycloak
+    env_file:
+      - .env
+    network_mode: service:keycloak
+    volumes:
+      - ${PATH_NODE}:/app
+      - target:/app/target
+      - ${PATH_NODE}/target:/tmp/target
+      - node_modules:/app/node_modules
+      - ${PATH_NODE}/node_modules:/tmp/node_modules
+
+volumes:
+  mvn_m2:
+  target:
+  node_modules:
