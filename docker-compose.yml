@@ -26,11 +26,11 @@ services:
 
       # Gateway Ports
       - "9001:9001"
-      - "8080:8080"
+      - "8082:8082"
 
       # Node Ports
-      - "9000:9000"
-      - "9060:9060"
+      - "9002:9002"
+      - "9062:9062"
     volumes:
       - ${PATH_KEYCLOAK}:/opt/jboss/keycloak/realm-config
 
