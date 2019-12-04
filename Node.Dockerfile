@@ -33,3 +33,4 @@ WORKDIR /app
 # Define the start command - the "& sh" at the end is a workaround to not stop the container if we kill the npm task.
 # This will only work with "tty: true" & "stdin_open: true" together.
 CMD ["sh", "-c", "yarn install && yarn start & sh"]
+#CMD ["sh", "-c", "yarn install && yarn run webpack:dev-local-docker & sh"]
